@@ -1,0 +1,37 @@
+pragma cashscript ^0.7.2;
+
+contract CCCovenant(bytes20 operatorPubkeysHash,
+                    bytes20 monitorPubkeysHash) {
+
+    function redeemOrConvert(
+            sig sig0, sig sig1,
+            pubkey op0, pubkey op1, pubkey op2,
+            bytes20 pkOrScriptHash,
+            bool isRedeem
+    ) {
+        require(hash160(op0+op1+op2) == operatorPubkeysHash);
+        require(checkMultiSig([sig0, sig1], [op0, op1, op2]));
+        require(tx.inputs.length == 1);
+        require(tx.outputs.length == 1);
+        if (isRedeem) {
+            require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(pkOrScriptHash));
+        } else { // convertByOperators
+            require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2SH(pkOrScriptHash));
+        }
+    }
+
+    function convertByMonitors(
+            sig sig0, sig sig1,
+            pubkey m0, pubkey m1, pubkey m2,
+            bytes20 scriptHash
+    ) {
+        require(hash160(m0+m1+m2) == monitorPubkeysHash);
+        require(checkMultiSig([sig0, sig1], [m0, m1, m2]));
+        // require(tx.inputs.length > 1);
+        // require(tx.outputs.length > 1);
+        require(tx.inputs[0].value == tx.outputs[0].value);
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2SH(scriptHash));
+        require(tx.age >= 6 * 24 * 180);
+    }
+
+}

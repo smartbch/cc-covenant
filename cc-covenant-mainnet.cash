@@ -1,0 +1,39 @@
+pragma cashscript ^0.7.2;
+
+contract CCCovenant(bytes20 operatorPubkeysHash,
+                    bytes20 monitorPubkeysHash) {
+
+    function redeemOrConvert(
+            sig sig0, sig sig1, sig sig2, sig sig3, sig sig4, sig sig5,
+            pubkey op0, pubkey op1, pubkey op2, pubkey op3, pubkey op4,
+            pubkey op5, pubkey op6, pubkey op7, pubkey op8, pubkey op9,
+            bytes20 pkOrScriptHash,
+            bool isRedeem
+    ) {
+        require(hash160(op0+op1+op2+op3+op4+op5+op6+op7+op8+op9) == operatorPubkeysHash);
+        require(checkMultiSig([sig0, sig1, sig2, sig3, sig4, sig5], 
+            [op0, op1, op2, op3, op4, op5, op6, op7, op8, op9]));
+        require(tx.inputs.length == 1);
+        require(tx.outputs.length == 1);
+        if (isRedeem) {
+            require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2PKH(pkOrScriptHash));
+        } else { // convertByOperators
+            require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2SH(pkOrScriptHash));
+        }
+    }
+
+    function convertByMonitors(
+            sig sig0, sig sig1,
+            pubkey m0, pubkey m1, pubkey m2,
+            bytes20 scriptHash
+    ) {
+        require(hash160(m0+m1+m2) == monitorPubkeysHash);
+        require(checkMultiSig([sig0, sig1], [m0, m1, m2]));
+        // require(tx.inputs.length > 1);
+        // require(tx.outputs.length > 1);
+        require(tx.inputs[0].value == tx.outputs[0].value);
+        require(tx.outputs[0].lockingBytecode == new LockingBytecodeP2SH(scriptHash));
+        require(tx.age >= 6 * 24 * 180);
+    }
+
+}
