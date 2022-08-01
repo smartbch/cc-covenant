@@ -8,7 +8,7 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
             pubkey op0, pubkey op1, pubkey op2, pubkey op3, pubkey op4,
             pubkey op5, pubkey op6, pubkey op7, pubkey op8, pubkey op9,
             bytes20 newMonitorPubkeysHash,
-            bytes20 newOperatorPubkeysHash,
+            bytes20 newOperatorPubkeysHash
     ) {
         require(hash160(op0+op1+op2+op3+op4+op5+op6+op7+op8+op9) == operatorPubkeysHash);
         require(checkMultiSig([sig0, sig1, sig2, sig3, sig4, sig5, sig6], 
@@ -18,16 +18,11 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
         require(tx.outputs.length == 1);
         require(tx.inputs[0].value == tx.outputs[0].value - 2000); // miner fee is hardcoded
 
-        bool isConvert = false;
-        bytes newContract = bytes(0);
-        if (newMonitorPubkeysHash != bytes20(0)) {
-            isConvert = true;
-            newContract = 0x14 + operatorPubkeysHash + 0x14 + newMonitorPubkeysHash + this.activeBytecode.split(42)[1];
-        } else if (newOperatorPubkeysHash != bytes20(0)) {
-            isConvert = true;
-            newContract = 0x14 + newOperatorPubkeysHash + 0x14 + monitorPubkeysHash + this.activeBytecode.split(42)[1];
-        }
-        if (isConvert) {            
+        if (newMonitorPubkeysHash != monitorPubkeysHash
+                || newOperatorPubkeysHash != operatorPubkeysHash) {
+
+            // convertByOperators
+            bytes newContract = 0x14 + newOperatorPubkeysHash + 0x14 + newMonitorPubkeysHash + this.activeBytecode.split(42)[1];
             bytes23 newContractLock = new LockingBytecodeP2SH(hash160(newContract));
             require(tx.outputs[0].lockingBytecode == newContractLock);
         }
