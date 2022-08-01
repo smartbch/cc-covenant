@@ -16,7 +16,7 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
 
         require(tx.inputs.length == 1);
         require(tx.outputs.length == 1);
-        require(tx.inputs[0].value == tx.outputs[0].value - 2000); // miner fee is hardcoded
+        require(tx.outputs[0].value == tx.inputs[0].value - 2000); // miner fee is hardcoded
 
         if (newMonitorPubkeysHash != monitorPubkeysHash
                 || newOperatorPubkeysHash != operatorPubkeysHash) {
@@ -37,7 +37,7 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
         require(checkMultiSig([sig0, sig1], [m0, m1, m2]));
 
         require(this.activeInputIndex == 0);
-        require(tx.inputs[0].value == tx.outputs[0].value);
+        require(tx.outputs[0].value == tx.inputs[0].value);
         require(tx.age >= 25920); // 6 * 24 * 180
 
         bytes newContract = 0x14 + newOperatorPubkeysHash + this.activeBytecode.split(21)[1];
