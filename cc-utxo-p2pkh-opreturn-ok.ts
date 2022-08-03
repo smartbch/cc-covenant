@@ -17,6 +17,8 @@ const alicePubKey = bitbox.ECPair.toPublicKey(aliceKeyPair);
 const alicePkh = bitbox.Crypto.hash160(alicePubKey);
 const aliceCashAddr = bitbox.Address.hash160ToCash(alicePkh.toString('hex'), 0x6f);
 
+console.log('aliceWIF:', aliceKeyPair.toWIF());
+console.log('alicePK:', alicePubKey.toString('hex'));
 console.log('alicePkh:', alicePkh.toString('hex'));
 console.log('aliceCashAddr:', aliceCashAddr);
 // aliceCashAddr: bchtest:qp5vev8yjxzyf0wmqhwvkvfa3jtear397gwsfxg7sa
