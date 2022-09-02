@@ -7,8 +7,8 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
             sig sig0, sig sig1, sig sig2, sig sig3, sig sig4, sig sig5, sig sig6,
             pubkey op0, pubkey op1, pubkey op2, pubkey op3, pubkey op4,
             pubkey op5, pubkey op6, pubkey op7, pubkey op8, pubkey op9,
-            bytes20 newMonitorPubkeysHash,
-            bytes20 newOperatorPubkeysHash
+            bytes newMonitorPubkeysHash,
+            bytes newOperatorPubkeysHash
     ) {
         require(hash160(op0+op1+op2+op3+op4+op5+op6+op7+op8+op9) == operatorPubkeysHash);
         require(checkMultiSig([sig0, sig1, sig2, sig3, sig4, sig5, sig6], 
@@ -16,12 +16,14 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
 
         require(tx.inputs.length == 1);
         require(tx.outputs.length == 1);
-        require(tx.outputs[0].value == tx.inputs[0].value - 2000); // miner fee is hardcoded
+        require(tx.outputs[0].value >= tx.inputs[0].value - 20000); // max miner fee is hardcoded
 
-        if (newMonitorPubkeysHash != monitorPubkeysHash
-                || newOperatorPubkeysHash != operatorPubkeysHash) {
-
+        if (newMonitorPubkeysHash.length > 0 || newOperatorPubkeysHash.length > 0) {
             // convertByOperators
+
+            require(newMonitorPubkeysHash.length == 20);
+            require(newOperatorPubkeysHash.length == 20);
+
             bytes newContract = 0x14 + newOperatorPubkeysHash + 0x14 + newMonitorPubkeysHash + this.activeBytecode.split(42)[1];
             bytes23 newContractLock = new LockingBytecodeP2SH(hash160(newContract));
             require(tx.outputs[0].lockingBytecode == newContractLock);
@@ -38,7 +40,7 @@ contract CCCovenant(bytes20 monitorPubkeysHash,
 
         require(this.activeInputIndex == 0);
         require(tx.outputs[0].value == tx.inputs[0].value);
-        require(tx.age >= 25920); // 6 * 24 * 180
+        require(tx.age >= 34560); // 6 * 24 * 30 * 8 ~= 8 months
 
         bytes newContract = 0x14 + newOperatorPubkeysHash + this.activeBytecode.split(21)[1];
         bytes23 newContractLock = new LockingBytecodeP2SH(hash160(newContract));
