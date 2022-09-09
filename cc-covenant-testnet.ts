@@ -87,8 +87,8 @@ async function redeem(): Promise<void> {
     .redeemOrConvert(
       ...operatorSigTmpls,
       ...operatorPks,
-      '0x',
-      '0x'
+      '',
+      operatorPubkeysHash
     )
     .from([utxo])
     .to(aliceAddr, amt)

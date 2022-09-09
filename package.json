@@ -12,6 +12,7 @@
     "bitbox-sdk": "^8.11.2",
     "cashc": "^0.7.2",
     "cashscript": "^0.7.2",
-    "yargs": "^17.1.0"
+    "yargs": "^17.1.0",
+    "@types/yargs": "^17.0.12"
   }
 }
