@@ -9,12 +9,18 @@ import {
   HashType, 
   SignatureAlgorithm,
 } from 'cashscript';
+import {
+  ElectrumCluster,
+  ElectrumTransport,
+  ClusterOrder,
+  RequestResponse,
+} from 'electrum-cash';
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
 
 const bitbox = new BITBOX();
 const rootSeed = bitbox.Mnemonic.toSeed('cc_covenant_v2_testnet');
 const hdNode = bitbox.HDNode.fromSeed(rootSeed);
-const provider = new ElectrumNetworkProvider('testnet');
-const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
 
 // operators
 const operatorKeyPairs = [...Array(10).keys()]
@@ -32,12 +38,52 @@ const monitorWIFs = monitorKeyPairs.map(k => bitbox.ECPair.toWIF(k));
 const monitorPks = monitorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
 const monitorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(monitorPks))
 
-printKeys();
-console.log('----------');
-printContractInfo();
-console.log('----------');
-// redeem();
-// convertByOperators();
+const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
+
+const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
+electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
+electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
+const provider = new ElectrumNetworkProvider('testnet', electrum);
+
+yargs(hideBin(process.argv))
+  .command('print-covenant-info', 'show covenant info', (yargs: any) => {
+    return yargs;
+  }, async (argv: any) => {
+    printKeys();
+    printContractInfo();
+  })
+  .command('list-cc-utxo', 'show cc-UTXOs', (yargs: any) => {
+    return yargs;
+  }, async (argv: any) => {
+    await listUTXOs();
+  })
+  .command('redeem-by-user', 'redeem cc-UTXO by user', (yargs: any) => {
+    return yargs
+      .option('to',      {required: true, type: 'string', description: 'receiver address'})
+      .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
+      .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
+      ;
+  }, async (argv: any) => {
+    await redeemByUser(argv.to, argv.utxo, argv.txfee);
+  })
+  .command('convert-by-operators', 'convert cc-UTXO by operators', (yargs: any) => {
+    return yargs
+      .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
+      .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
+      ;
+  }, async (argv: any) => {
+    await convertByOperators(argv.utxo, argv.txfee);
+  })
+  .command('convert-by-monitors', 'convert cc-UTXO by monitors', (yargs: any) => {
+    return yargs
+      .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
+      .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
+      ;
+  }, async (argv: any) => {
+    await convertByMonitors(argv.utxo, argv.txfee);
+  })
+  .strictCommands()
+  .argv;
 
 function printKeys() {
   console.log('operatorWIFs:', operatorWIFs.map(x => x.toString('hex')));
@@ -48,6 +94,12 @@ function printKeys() {
   console.log('monitorPubkeysHash:', monitorPubkeysHash.toString('hex'));
 }
 
+function createContract() {
+  const args = [monitorPubkeysHash, operatorPubkeysHash];
+  const contract = new Contract(artifact, args, provider);
+  return contract;
+}
+
 function printContractInfo() {
   const contract = createContract();
   console.log("redeemScriptHex:", contract.getRedeemScriptHex());
@@ -56,16 +108,17 @@ function printContractInfo() {
   console.log('>> old addr:', bitbox.Address.toLegacyAddress(contract.address));
 }
 
-function createContract() {
-  const args = [monitorPubkeysHash, operatorPubkeysHash];
-  const contract = new Contract(artifact, args, provider);
-  return contract;
+async function listUTXOs() {
+  const contract = createContract();
+  let utxos = await contract.getUtxos();
+  console.log('addr:', contract.address);
+  console.log('UTXOs  :', utxos);
 }
 
-async function redeem(): Promise<void> {
-  console.log('redeem...');
-  const alicePKH = '99c7e0b48a05cd6024b22cd490fcee30aa51d862';
-  const aliceAddr = 'bchtest:qzvu0c953gzu6cpykgkdfy8uacc255wcvgmp7ekj7y';
+async function redeemByUser(toAddr: string,
+                            txIdVout: string,
+                            txFee: number): Promise<void> {
+  console.log('redeemByUser...');
 
   const contract = createContract();
   let utxos = await contract.getUtxos();
@@ -75,8 +128,13 @@ async function redeem(): Promise<void> {
     return;
   }
 
+  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
+  if (utxos.length == 0) {
+    console.log("UTXO not found !");
+    return;
+  }
+
   const utxo = utxos[0];
-  const txFee = 2000;
   const amt = utxo.satoshis - txFee;
 
   const operatorSigTmpls = operatorKeyPairs.slice(0, 7)
@@ -88,10 +146,10 @@ async function redeem(): Promise<void> {
       ...operatorSigTmpls,
       ...operatorPks,
       '',
-      operatorPubkeysHash
+      ''
     )
     .from([utxo])
-    .to(aliceAddr, amt)
+    .to(toAddr, amt)
     .withHardcodedFee(txFee);
 
   // const txHex = await txBuilder.build();
@@ -102,7 +160,8 @@ async function redeem(): Promise<void> {
   console.log('transaction details:', stringify(tx));
 }
 
-async function convertByOperators(): Promise<void> {
+async function convertByOperators(txIdVout: string,
+                                  txFee: number): Promise<void> {
   console.log('convertByOperators...');
 
   const contract = createContract();
@@ -113,8 +172,13 @@ async function convertByOperators(): Promise<void> {
     return;
   }
 
+  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
+  if (utxos.length == 0) {
+    console.log("UTXO not found !");
+    return;
+  }
+
   const utxo = utxos[0];
-  const txFee = 2000;
   const amt = utxo.satoshis - txFee;
 
   const operatorSigTmpls = operatorKeyPairs.slice(0, 7)
@@ -143,7 +207,8 @@ async function convertByOperators(): Promise<void> {
   console.log('transaction details:', stringify(tx));
 }
 
-async function convertByMonitors(): Promise<void> {
+async function convertByMonitors(txIdVout: string,
+                                 txFee: number): Promise<void> {
   console.log('convertByMonitors...');
 
   const contract = createContract();
@@ -155,7 +220,6 @@ async function convertByMonitors(): Promise<void> {
   }
 
   const utxo = utxos[0];
-  const txFee = 2000;
   const amt = utxo.satoshis - txFee;
 
   const monotorSigTmpls = monitorKeyPairs.slice(0, 2)

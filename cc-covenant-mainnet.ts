@@ -32,7 +32,7 @@ console.log('operatorPks:', operatorPks.map(x => x.toString('hex')));
 const operatorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(operatorPks))
 console.log('operatorPubkeysHash:', operatorPubkeysHash.toString('hex'));
 
-const provider = new ElectrumNetworkProvider('testnet');
+const provider = new ElectrumNetworkProvider('mainnet');
 
 const artifact = compileFile(path.join(__dirname, 'cc-covenant-mainnet.cash'));
 const args = [monitorPubkeysHash, operatorPubkeysHash];
