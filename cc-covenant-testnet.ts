@@ -68,11 +68,15 @@ yargs(hideBin(process.argv))
   })
   .command('convert-by-operators', 'convert cc-UTXO by operators', (yargs: any) => {
     return yargs
-      .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
-      .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
+      .option('to',    {required: true, type: 'string', description: 'receiver address'})
+      .option('utxo',  {required: true, type: 'string', description: 'txid:vout'})
+      .option('txfee', {required: true, type: 'number', description: 'tx fee'})
+      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
+      .option('new-monitor-pubkeys-hash',  {required: true, type: 'string', description: '20-bytes hex'})
       ;
   }, async (argv: any) => {
-    await convertByOperators(argv.utxo, argv.txfee);
+    await convertByOperators(argv.utxo, argv.txfee, argv.to, 
+        argv.newOperatorPubkeysHash, argv.newMonitorPubkeysHash);
   })
   .command('convert-by-monitors', 'convert cc-UTXO by monitors', (yargs: any) => {
     return yargs
@@ -119,51 +123,31 @@ async function redeemByUser(toAddr: string,
                             txIdVout: string,
                             txFee: number): Promise<void> {
   console.log('redeemByUser...');
-
-  const contract = createContract();
-  let utxos = await contract.getUtxos();
-  console.log('contract UTXOs  :', utxos);
-  if (utxos.length == 0) {
-    console.log("no UTXOs !");
-    return;
-  }
-
-  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
-  if (utxos.length == 0) {
-    console.log("UTXO not found !");
-    return;
-  }
-
-  const utxo = utxos[0];
-  const amt = utxo.satoshis - txFee;
-
-  const operatorSigTmpls = operatorKeyPairs.slice(0, 7)
-    .map(p => new SignatureTemplate(p, HashType.SIGHASH_ALL, SignatureAlgorithm.ECDSA));
-  // console.log(operatorSigTmpls);
-
-  const txBuilder = await contract.functions
-    .redeemOrConvert(
-      ...operatorSigTmpls,
-      ...operatorPks,
-      '',
-      ''
-    )
-    .from([utxo])
-    .to(toAddr, amt)
-    .withHardcodedFee(txFee);
-
-  // const txHex = await txBuilder.build();
-  // console.log('txHex:', txHex);
-  // const meepStr = await txBuilder.meep();
-  // console.log('meep:', meepStr);
-  const tx = await txBuilder.send();
-  console.log('transaction details:', stringify(tx));
+  console.log('toAddr:', toAddr);
+  console.log('txIdVout:', txIdVout);
+  console.log('txFee:', txFee);
+  await redeemOrConvert(toAddr, txIdVout, txFee, '', '');
 }
 
 async function convertByOperators(txIdVout: string,
-                                  txFee: number): Promise<void> {
+                                  txFee: number,
+                                  newCovenantAddr: string,
+                                  newOperatorPbukeysHash: string,
+                                  newMonitorPubkeysHash: string): Promise<void> {
   console.log('convertByOperators...');
+  console.log('newCovenantAddr:', newCovenantAddr);
+  console.log('newOperatorPbukeysHash:', newOperatorPbukeysHash);
+  console.log('newMonitorPubkeysHash:', newMonitorPubkeysHash);
+  await redeemOrConvert(newCovenantAddr, txIdVout, txFee, 
+      newOperatorPbukeysHash, newMonitorPubkeysHash);
+}
 
+async function redeemOrConvert(toAddr: string,
+                               txIdVout: string,
+                               txFee: number,
+                               newOperatorPbukeysHash: string,
+                               newMonitorPubkeysHash: string): Promise<void> {
+  console.log('redeemOrConvert...');
   const contract = createContract();
   let utxos = await contract.getUtxos();
   console.log('contract UTXOs  :', utxos);
@@ -185,18 +169,18 @@ async function convertByOperators(txIdVout: string,
     .map(p => new SignatureTemplate(p, HashType.SIGHASH_ALL, SignatureAlgorithm.ECDSA));
   // console.log(operatorSigTmpls);
 
-  const newOperatorsPbukeysHash = '57a158339cd184037a5b27d3033cb721713f27c3';
-  const newCovenantAddr = 'bchtest:pzhzcadkj36luj9ptudg8z6j8r6vc49atqqhxjyaf3';
+  // const newOperatorsPbukeysHash = '57a158339cd184037a5b27d3033cb721713f27c3';
+  // const newCovenantAddr = 'bchtest:pzhzcadkj36luj9ptudg8z6j8r6vc49atqqhxjyaf3';
 
   const txBuilder = await contract.functions
     .redeemOrConvert(
       ...operatorSigTmpls,
       ...operatorPks,
-      monitorPubkeysHash,
-      newOperatorsPbukeysHash
+      newMonitorPubkeysHash,
+      newOperatorPbukeysHash
     )
     .from([utxo])
-    .to(newCovenantAddr, amt)
+    .to(toAddr, amt)
     .withHardcodedFee(txFee);
 
   // const txHex = await txBuilder.build();
@@ -216,6 +200,12 @@ async function convertByMonitors(txIdVout: string,
   console.log('contract UTXOs  :', utxos);
   if (utxos.length == 0) {
     console.log("no UTXOs !");
+    return;
+  }
+
+  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
+  if (utxos.length == 0) {
+    console.log("UTXO not found !");
     return;
   }
 
