@@ -38,6 +38,16 @@ const monitorWIFs = monitorKeyPairs.map(k => bitbox.ECPair.toWIF(k));
 const monitorPks = monitorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
 const monitorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(monitorPks))
 
+// alice
+const aliceRootSeed = bitbox.Mnemonic.toSeed('alice');
+const aliceHdNode = bitbox.HDNode.fromSeed(aliceRootSeed);
+const aliceNode = bitbox.HDNode.derive(aliceHdNode, 1234);
+const aliceKeyPair = bitbox.HDNode.toKeyPair(aliceNode);
+const alicePubKey = bitbox.ECPair.toPublicKey(aliceKeyPair);
+const alicePkh = bitbox.Crypto.hash160(alicePubKey);
+const aliceCashAddr = bitbox.Address.hash160ToCash(alicePkh.toString('hex'), 0x6f);
+
+
 const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
 
 const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
@@ -80,11 +90,13 @@ yargs(hideBin(process.argv))
   })
   .command('convert-by-monitors', 'convert cc-UTXO by monitors', (yargs: any) => {
     return yargs
-      .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
-      .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
+      .option('to',    {required: true, type: 'string', description: 'receiver address'})
+      .option('utxo',  {required: true, type: 'string', description: 'txid:vout'})
+      .option('txfee', {required: true, type: 'string', description: 'txid:vout'})
+      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
       ;
   }, async (argv: any) => {
-    await convertByMonitors(argv.utxo, argv.txfee);
+    await convertByMonitors(argv.utxo, argv.txfee, argv.to, argv.newOperatorPubkeysHash);
   })
   .strictCommands()
   .argv;
@@ -169,9 +181,6 @@ async function redeemOrConvert(toAddr: string,
     .map(p => new SignatureTemplate(p, HashType.SIGHASH_ALL, SignatureAlgorithm.ECDSA));
   // console.log(operatorSigTmpls);
 
-  // const newOperatorsPbukeysHash = '57a158339cd184037a5b27d3033cb721713f27c3';
-  // const newCovenantAddr = 'bchtest:pzhzcadkj36luj9ptudg8z6j8r6vc49atqqhxjyaf3';
-
   const txBuilder = await contract.functions
     .redeemOrConvert(
       ...operatorSigTmpls,
@@ -192,7 +201,9 @@ async function redeemOrConvert(toAddr: string,
 }
 
 async function convertByMonitors(txIdVout: string,
-                                 txFee: number): Promise<void> {
+                                 feeTxIdVout: string,
+                                 newCovenantAddr: string,
+                                 newOperatorPbukeysHash: string): Promise<void> {
   console.log('convertByMonitors...');
 
   const contract = createContract();
@@ -203,30 +214,39 @@ async function convertByMonitors(txIdVout: string,
     return;
   }
 
-  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
-  if (utxos.length == 0) {
+  const utxo = utxos.find(x => x.txid + ':' + x.vout == txIdVout);
+  if (!utxo) {
     console.log("UTXO not found !");
     return;
   }
+  const amt = utxo.satoshis;
 
-  const utxo = utxos[0];
-  const amt = utxo.satoshis - txFee;
+  let aliceUtxos = await provider.getUtxos(aliceCashAddr);
+  console.log('alice UTXOs:', aliceUtxos)
+  if (aliceUtxos.length == 0) {
+    console.log("no UTXOs !");
+    return;
+  }
+
+  const feeUtxo = aliceUtxos.find(x => x.txid + ':' + x.vout == feeTxIdVout);
+  if (!feeUtxo) {
+    console.log("UTXO not found !");
+    return;
+  }
+  const txFee = feeUtxo.satoshis;
+  (feeUtxo as any).template = new SignatureTemplate(aliceKeyPair);
 
   const monotorSigTmpls = monitorKeyPairs.slice(0, 2)
     .map(p => new SignatureTemplate(p, HashType.SIGHASH_ALL, SignatureAlgorithm.ECDSA));
   // console.log(operatorSigTmpls);
 
-  const newOperatorsPbukeysHash = '57a158339cd184037a5b27d3033cb721713f27c3';
-  const newCovenantAddr = 'bchtest:pzhzcadkj36luj9ptudg8z6j8r6vc49atqqhxjyaf3';
-
   const txBuilder = await contract.functions
     .convertByMonitors(
       ...monotorSigTmpls,
       ...monitorPks,
-      monitorPubkeysHash,
-      newOperatorsPbukeysHash
+      newOperatorPbukeysHash
     )
-    .from([utxo])
+    .from([utxo, feeUtxo])
     .to([{to: newCovenantAddr, amount: amt}])
     .withHardcodedFee(txFee);
 
