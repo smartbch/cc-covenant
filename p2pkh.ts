@@ -14,11 +14,41 @@ import {
 import { compileFile } from 'cashc';
 import path from 'path';
 
+// Initialise BITBOX
+const bitbox = new BITBOX();
+
+// Initialise HD node and alice's keypair
+const rootSeed = bitbox.Mnemonic.toSeed('smartBCH_faucet');
+const hdNode = bitbox.HDNode.fromSeed(rootSeed);
+const alice = bitbox.HDNode.toKeyPair(bitbox.HDNode.derive(hdNode, 0));
+
+// Derive alice's public key and public key hash
+const alicePk = bitbox.ECPair.toPublicKey(alice);
+const alicePkh = bitbox.Crypto.hash160(alicePk);
+
+// Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
+const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
+electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
+electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
+
+// Initialise a network provider for network operations on TESTNET
+const provider = new ElectrumNetworkProvider('testnet', electrum);
+
+// Compile the P2PKH contract to an artifact object
+const artifact = compileFile(path.join(__dirname, 'p2pkh.cash'));
+
+// Instantiate a new contract using the compiled artifact and network provider
+// AND providing the constructor parameters (pkh: alicePkh)
+const contract = new Contract(artifact, [alicePkh], provider);
+
+
 run();
 
 async function run(): Promise<void> {
   if (process.argv.length < 4) {
     console.log('Usage: ts-node p2pkh.ts <address> <amt> [op_return_data]');
+    console.log('');
+    await printInfo();
     return;
   }
 
@@ -32,37 +62,14 @@ async function run(): Promise<void> {
   await sendTo(addr, +amt, opRetData);
 }
 
-async function sendTo(addr: string, amt: number, opRetData: string): Promise<void> {
-  // Initialise BITBOX
-  const bitbox = new BITBOX();
-
-  // Initialise HD node and alice's keypair
-  const rootSeed = bitbox.Mnemonic.toSeed('smartBCH_faucet');
-  const hdNode = bitbox.HDNode.fromSeed(rootSeed);
-  const alice = bitbox.HDNode.toKeyPair(bitbox.HDNode.derive(hdNode, 0));
-
-  // Derive alice's public key and public key hash
-  const alicePk = bitbox.ECPair.toPublicKey(alice);
-  const alicePkh = bitbox.Crypto.hash160(alicePk);
-
-  // Compile the P2PKH contract to an artifact object
-  const artifact = compileFile(path.join(__dirname, 'p2pkh.cash'));
-
-  // Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
-  const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-  electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-  electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
-
-  // Initialise a network provider for network operations on TESTNET
-  const provider = new ElectrumNetworkProvider('testnet', electrum);
-
-  // Instantiate a new contract using the compiled artifact and network provider
-  // AND providing the constructor parameters (pkh: alicePkh)
-  const contract = new Contract(artifact, [alicePkh], provider);
-
+async function printInfo() {
   // Get contract balance & output address + balance
   console.log('contract address:', contract.address);
   console.log('contract balance:', await contract.getBalance());
+}
+
+async function sendTo(addr: string, amt: number, opRetData: string): Promise<void> {
+  await printInfo();
 
   // Call the spend() function with alice's signature + pk
   // And use it to send BCH to addr
@@ -73,8 +80,8 @@ async function sendTo(addr: string, amt: number, opRetData: string): Promise<voi
     tx = tx.withOpReturn([opRetData]);
   }
 
-  const td = await tx.send();
-  console.log('transaction details:', stringify(td));
   // const rawTx = await tx.build();
   // console.log('rawTx', rawTx);
+  const td = await tx.send();
+  console.log('transaction details:', stringify(td));
 }

@@ -39,7 +39,7 @@ electrum.addServer('tbch.loping.net', 60002, ElectrumTransport.TCP_TLS.Scheme, f
 const provider = new ElectrumNetworkProvider('testnet', electrum);
 
 yargs(hideBin(process.argv))
-  .command('list-utxo', 'show alice\'s address and UTXO set', (yargs: any) => {
+  .command('list-utxo', 'show P2PKH address and UTXO set', (yargs: any) => {
     return yargs;
   }, async (argv: any) => {
     await printAliceInfo();
@@ -48,7 +48,7 @@ yargs(hideBin(process.argv))
     return yargs
       .option('to',      {required: true, type: 'string', description: 'receiver address'})
       .option('utxo',    {required: true, type: 'string', description: 'txid:vout'})
-      .option('retdata', {required: true, type: 'string', description: 'return data'})
+      .option('retdata', {required: false,type: 'string', description: 'return data'})
       .option('amt',     {required: true, type: 'number', description: 'amount'})
       .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
       ;
@@ -64,12 +64,12 @@ yargs(hideBin(process.argv))
   .argv;
 
 async function printAliceInfo() {
-  console.log('aliceWIF:', aliceKeyPair.toWIF());
-  console.log('alicePK:', alicePubKey.toString('hex'));
-  console.log('alicePkh:', alicePkh.toString('hex'));
-  console.log('aliceCashAddr:', aliceCashAddr);
+  console.log('WIF:', aliceKeyPair.toWIF());
+  console.log('Pubkey:', alicePubKey.toString('hex'));
+  console.log('PKH:', alicePkh.toString('hex'));
+  console.log('CashAddr:', aliceCashAddr);
 
-  console.log('quering unspent UTXOs ...');
+  console.log('quering UTXOs ...');
   const utxos = await provider.getUtxos(aliceCashAddr);
   console.log("utxos:", utxos);
 }
@@ -87,7 +87,7 @@ async function spendUTXO(toAddr: string,
 
   console.log('quering unspent UTXOs ...');
   let utxos = await provider.getUtxos(aliceCashAddr);
-  console.log('utxos:', utxos)
+  console.log('UTXOs:', utxos)
   if (utxos.length == 0) {
     console.log("no UTXOs !");
     return;
@@ -109,7 +109,7 @@ async function spendUTXO(toAddr: string,
     txBuilder.addOutput(aliceCashAddr, change);
   }
 
-  if (retData != 'no') {
+  if (retData && retData != 'no') {
     const retDataHex = asciiToHex(retData);
     // console.log('retDataHex:', retDataHex);
     const retDataBuf = Buffer.from(retDataHex, 'hex');

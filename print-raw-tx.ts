@@ -1,4 +1,3 @@
-import { ElectrumNetworkProvider } from 'cashscript';
 import {
   hexToBin,
   decodeTransaction,
@@ -9,7 +8,10 @@ import {
 run();
 
 async function run(): Promise<void> {
-  const provider = new ElectrumNetworkProvider('testnet');
+  if (process.argv.length < 3) {
+    console.log('Usage: ts-node print-raw-tx.ts <txdata>');
+    return;
+  }
 
   let txHex = process.argv[2];
   if (txHex.startsWith("0x")) {
