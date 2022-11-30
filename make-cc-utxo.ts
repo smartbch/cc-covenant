@@ -15,11 +15,13 @@ import {
   stringify,
 } from '@bitauth/libauth';
 
+const mnemonic = process.env.MNEMONIC || 'alice';
+
 // Initialise BITBOX
 const bitbox = new BITBOX({});
 
 // Initialise HD node
-const rootSeed = bitbox.Mnemonic.toSeed('alice');
+const rootSeed = bitbox.Mnemonic.toSeed(mnemonic);
 const hdNode = bitbox.HDNode.fromSeed(rootSeed);
 
 const aliceNode = bitbox.HDNode.derive(hdNode, 1234);
@@ -56,18 +58,13 @@ yargs(hideBin(process.argv))
   }, async (argv: any) => {
     await spendUTXO(argv.to, argv.utxo, argv.retdata, argv.amt, argv.txfee);
   })
-  // .option('verbose', {
-  //   alias: 'v',
-  //   type: 'boolean',
-  //   description: 'Run with verbose logging'
-  // })
   .strictCommands()
   .argv;
 
 async function printAliceInfo() {
-  console.log('WIF:', aliceKeyPair.toWIF());
-  console.log('Pubkey:', alicePubKey.toString('hex'));
-  console.log('PKH:', alicePkh.toString('hex'));
+  console.log('WIF     :', aliceKeyPair.toWIF());
+  console.log('Pubkey  :', alicePubKey.toString('hex'));
+  console.log('PKH     :', alicePkh.toString('hex'));
   console.log('CashAddr:', aliceCashAddr);
 
   console.log('quering UTXOs ...');
