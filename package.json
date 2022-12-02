@@ -9,10 +9,12 @@
   "author": "zxh0",
   "license": "ISC",
   "devDependencies": {
+    "@types/express": "^4.17.14",
+    "@types/yargs": "^17.0.12",
     "bitbox-sdk": "^8.11.2",
     "cashc": "^0.7.2",
     "cashscript": "^0.7.2",
-    "yargs": "^17.1.0",
-    "@types/yargs": "^17.0.12"
+    "express": "^4.17.3",
+    "yargs": "^17.1.0"
   }
 }
