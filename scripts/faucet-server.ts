@@ -16,10 +16,11 @@ import {
 } from '@bitauth/libauth';
 
 import express from "express";
+import cors from "cors";
 
 
 const mnemonic = process.env.MNEMONIC || 'faucet';
-const port = process.env.PORT || 8888;
+const port = process.env.PORT || 8887;
 const ccCovenantAddr = 'bchtest:pp4d87q4y0y84gtlrhaqsfcu74akya7f3c54m3nhzk';
 const amt = 200000;
 const txFee = 1000;
@@ -51,6 +52,7 @@ const provider = new ElectrumNetworkProvider('testnet', electrum);
 
 
 const app = express();
+app.use(cors());
 
 app.get('/info', async (req, res) => {
   res.json({
@@ -64,10 +66,12 @@ app.get('/utxos', async (req, res) => {
 });
 
 app.get('/spend', async (req, res) => {
-  const toAddr = req.query.addr as string;
-  console.log('spend, addr:', toAddr);
-  if (!toAddr) {
-    res.json({success: false, error: 'missing param: addr'});
+  const covenantAddr = req.query.covenantAddr || ccCovenantAddr;
+  const receiverAddr = req.query.receiverAddr as string;
+  console.log('spend, covenantAddr:', covenantAddr, 'receiverAddr:', receiverAddr);
+
+  if (!receiverAddr) {
+    res.json({success: false, error: 'missing param: receiverAddr'});
     return;
   }
 
@@ -88,7 +92,7 @@ app.get('/spend', async (req, res) => {
     txBuilder.addOutput(faucetCashAddr, change);
   }
 
-  const retDataHex = asciiToHex(toAddr);
+  const retDataHex = asciiToHex(receiverAddr);
   // console.log('retDataHex:', retDataHex);
   const retDataBuf = Buffer.from(retDataHex, 'hex');
   const nullDataScript = bitbox.Script.nullData.output.encode(retDataBuf);
@@ -120,7 +124,7 @@ app.get('/spend', async (req, res) => {
 
   const libauthTx = decodeTransaction(hexToBin(hex)) as LibauthTx;
   console.log('tx details:', stringify({ ...libauthTx, txid, hex }));
-  res.json({txid: txid});
+  res.json({success: true, txid: txid});
 });
 
 app.listen(port, () => {
