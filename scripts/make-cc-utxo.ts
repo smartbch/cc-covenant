@@ -15,22 +15,19 @@ import {
   stringify,
 } from '@bitauth/libauth';
 
-const mnemonic = process.env.MNEMONIC || 'alice';
 
 // Initialise BITBOX
 const bitbox = new BITBOX({});
 
 // Initialise HD node
-const rootSeed = bitbox.Mnemonic.toSeed(mnemonic);
-const hdNode = bitbox.HDNode.fromSeed(rootSeed);
-
-const aliceNode = bitbox.HDNode.derive(hdNode, 1234);
-const aliceKeyPair = bitbox.HDNode.toKeyPair(aliceNode);
-const alicePubKey = bitbox.ECPair.toPublicKey(aliceKeyPair);
-const alicePkh = bitbox.Crypto.hash160(alicePubKey);
-const aliceCashAddr = bitbox.Address.hash160ToCash(alicePkh.toString('hex'), 0x6f);
-
-// aliceCashAddr: bchtest:qp5vev8yjxzyf0wmqhwvkvfa3jtear397gwsfxg7sa
+const mnemonic     = process.env.MNEMONIC || 'alice';
+const rootSeed     = bitbox.Mnemonic.toSeed(mnemonic);
+const hdNode       = bitbox.HDNode.fromSeed(rootSeed);
+const userNode     = bitbox.HDNode.derive(hdNode, 1234);
+const userKeyPair  = bitbox.HDNode.toKeyPair(userNode);
+const userPubKey   = bitbox.ECPair.toPublicKey(userKeyPair);
+const userPkh      = bitbox.Crypto.hash160(userPubKey);
+const userCashAddr = bitbox.Address.hash160ToCash(userPkh.toString('hex'), 0x6f);
 
 // Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
 const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
@@ -45,7 +42,7 @@ yargs(hideBin(process.argv))
   .command('list-utxo', 'show P2PKH address and UTXO set', (yargs: any) => {
     return yargs;
   }, async (argv: any) => {
-    await printAliceInfo();
+    await printUserInfo();
   })
   .command('spend-utxo', 'spend utxo', (yargs: any) => {
     return yargs
@@ -61,14 +58,14 @@ yargs(hideBin(process.argv))
   .strictCommands()
   .argv;
 
-async function printAliceInfo() {
-  console.log('WIF     :', aliceKeyPair.toWIF());
-  console.log('Pubkey  :', alicePubKey.toString('hex'));
-  console.log('PKH     :', alicePkh.toString('hex'));
-  console.log('CashAddr:', aliceCashAddr);
+async function printUserInfo() {
+  console.log('WIF     :', userKeyPair.toWIF());
+  console.log('Pubkey  :', userPubKey.toString('hex'));
+  console.log('PKH     :', userPkh.toString('hex'));
+  console.log('CashAddr:', userCashAddr);
 
   console.log('quering UTXOs ...');
-  const utxos = await provider.getUtxos(aliceCashAddr);
+  const utxos = await provider.getUtxos(userCashAddr);
   console.log("utxos:", utxos);
 }
 
@@ -84,7 +81,7 @@ async function spendUTXO(toAddr: string,
   console.log('txFee:', txFee);
 
   console.log('quering unspent UTXOs ...');
-  let utxos = await provider.getUtxos(aliceCashAddr);
+  let utxos = await provider.getUtxos(userCashAddr);
   console.log('UTXOs:', utxos)
   if (utxos.length == 0) {
     console.log("no UTXOs !");
@@ -104,7 +101,7 @@ async function spendUTXO(toAddr: string,
 
   const change = utxo.satoshis - amt - txFee;
   if (change > 0) {
-    txBuilder.addOutput(aliceCashAddr, change);
+    txBuilder.addOutput(userCashAddr, change);
   }
 
   if (retData && retData != 'no') {
@@ -120,7 +117,7 @@ async function spendUTXO(toAddr: string,
   let redeemScript
   txBuilder.sign(
     0,
-    aliceKeyPair,
+    userKeyPair,
     redeemScript,
     txBuilder.hashTypes.SIGHASH_ALL,
     utxo.satoshis
