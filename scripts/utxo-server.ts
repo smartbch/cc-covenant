@@ -64,6 +64,12 @@ app.get('/history', async (req, res) => {
   res.json(history);
 });
 
+app.get('/tx', async (req, res) => {
+  const txid = req.query.id as string;
+  const tx = await provider.getTx(txid);
+  res.json(tx);
+});
+
 app.get('/utxos', async (req, res) => {
   const utxos = await provider.getUtxos(faucetCashAddr);
   res.json(utxos);

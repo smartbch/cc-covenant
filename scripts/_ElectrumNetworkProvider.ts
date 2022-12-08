@@ -1,5 +1,5 @@
 // https://github.com/rkalis/cashscript/blob/master/packages/cashscript/src/network/ElectrumNetworkProvider.ts
-// copied from cashscript and added getHistory method, only used by faucet-server.ts
+// copied from cashscript and added several methods, only used by utxo-server.ts
 
 
 import { binToHex, cashAddressToLockingBytecode } from '@bitauth/libauth';
@@ -63,6 +63,11 @@ export default class ElectrumNetworkProvider implements NetworkProvider {
     const scripthash = addressToElectrumScriptHash(address);
     const result = await this.performRequest('blockchain.scripthash.get_history', scripthash);
     return result;
+  }
+
+  // https://electrumx.readthedocs.io/en/latest/protocol-methods.html#blockchain-scripthash-get-history
+  async getTx(txHash: string): Promise<any> {
+    return await this.performRequest('blockchain.transaction.get', txHash, true);
   }
 
   async getUtxos(address: string): Promise<Utxo[]> {
