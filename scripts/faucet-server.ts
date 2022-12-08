@@ -7,7 +7,8 @@ import {
   ElectrumTransport,
   ClusterOrder,
 } from 'electrum-cash';
-import { ElectrumNetworkProvider } from 'cashscript';
+// import { ElectrumNetworkProvider } from 'cashscript';
+import ElectrumNetworkProvider from './_ElectrumNetworkProvider';
 import {
   hexToBin,
   decodeTransaction,
@@ -32,14 +33,11 @@ const bitbox = new BITBOX({});
 // Initialise HD node
 const rootSeed = bitbox.Mnemonic.toSeed(mnemonic);
 const hdNode = bitbox.HDNode.fromSeed(rootSeed);
-
 const faucetNode = bitbox.HDNode.derive(hdNode, 1234);
 const faucetKeyPair = bitbox.HDNode.toKeyPair(faucetNode);
 const faucetPubKey = bitbox.ECPair.toPublicKey(faucetKeyPair);
 const faucetPkh = bitbox.Crypto.hash160(faucetPubKey);
 const faucetCashAddr = bitbox.Address.hash160ToCash(faucetPkh.toString('hex'), 0x6f);
-
-// faucetCashAddr: bchtest:qp5vev8yjxzyf0wmqhwvkvfa3jtear397gwsfxg7sa
 
 // Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
 const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
@@ -58,6 +56,12 @@ app.get('/info', async (req, res) => {
   res.json({
     address: faucetCashAddr,
   });
+});
+
+app.get('/history', async (req, res) => {
+  const covenantAddr = req.query.covenantAddr as string || ccCovenantAddr;
+  const history = await provider.getHistory(covenantAddr);
+  res.json(history);
 });
 
 app.get('/utxos', async (req, res) => {
