@@ -1,16 +1,4 @@
-import { ElectrumNetworkProvider } from 'cashscript';
-import {
-  hexToBin,
-  decodeTransaction,
-  Transaction as LibauthTransaction,
-  stringify,
-} from '@bitauth/libauth';
-import {
-  ElectrumCluster,
-  ElectrumTransport,
-  ClusterOrder,
-  RequestResponse,
-} from 'electrum-cash';
+import { createElectrumTestnetProvider, rawTxToStr } from '../utils/utils';
 
 run();
 
@@ -23,15 +11,7 @@ async function run(): Promise<void> {
   const txid = process.argv[2];
   console.log('txid:', txid);
 
-  const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-  electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-  electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
-  const provider = new ElectrumNetworkProvider('testnet', electrum);
-
+  const provider = createElectrumTestnetProvider();
   const hex = await provider.getRawTransaction(txid);
-  // console.log('hex:', hex);
-
-  const libauthTransaction = decodeTransaction(hexToBin(hex)) as LibauthTransaction;
-  const tx = { ...libauthTransaction, txid, hex };
-  console.log('tx details:', stringify(tx));
+  console.log('tx details:', rawTxToStr(txid, hex));
 }

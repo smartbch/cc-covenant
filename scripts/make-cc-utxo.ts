@@ -1,20 +1,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-
 import { BITBOX } from 'bitbox-sdk';
-import {
-  ElectrumCluster,
-  ElectrumTransport,
-  ClusterOrder,
-} from 'electrum-cash';
-import { ElectrumNetworkProvider } from 'cashscript';
-import {
-  hexToBin,
-  decodeTransaction,
-  Transaction as LibauthTx,
-  stringify,
-} from '@bitauth/libauth';
-
+import { createElectrumTestnetProvider, rawTxToStr } from '../utils/utils';
 
 // Initialise BITBOX
 const bitbox = new BITBOX({});
@@ -29,14 +16,8 @@ const userPubKey   = bitbox.ECPair.toPublicKey(userKeyPair);
 const userPkh      = bitbox.Crypto.hash160(userPubKey);
 const userCashAddr = bitbox.Address.hash160ToCash(userPkh.toString('hex'), 0x6f);
 
-// Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
-const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-// electrum.addServer('tbch.loping.net', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-electrum.addServer('testnet.bitcoincash.network', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-
 // Initialise a network provider for network operations on TESTNET
-const provider = new ElectrumNetworkProvider('testnet', electrum);
+const provider = createElectrumTestnetProvider();
 
 yargs(hideBin(process.argv))
   .command('list-utxo', 'show P2PKH address and UTXO set', (yargs: any) => {
@@ -70,7 +51,7 @@ async function printUserInfo() {
 }
 
 async function spendUTXO(toAddr: string,
-                         txIdVout: string,
+                         txIdVout: string | string[],
                          retData: string,
                          amt: number,
                          txFee: number) {
@@ -88,18 +69,32 @@ async function spendUTXO(toAddr: string,
     return;
   }
 
-  utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
+  switch (typeof txIdVout) {
+  case 'string':
+    utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
+    break;
+  case 'object': // array
+    utxos = utxos.filter(x => txIdVout.indexOf(x.txid + ':' + x.vout) >= 0);
+    break;
+  default:
+    utxos = [];
+  }
+
   if (utxos.length == 0) {
     console.log("UTXO not found !");
     return;
   }
 
-  const utxo = utxos[0];
   const txBuilder = new bitbox.TransactionBuilder('testnet');
-  txBuilder.addInput(utxo.txid, utxo.vout);
-  txBuilder.addOutput(toAddr, amt);
 
-  const change = utxo.satoshis - amt - txFee;
+  let totalAmt = 0;
+  for (const utxo of utxos) {
+    txBuilder.addInput(utxo.txid, utxo.vout);
+    totalAmt += utxo.satoshis;
+  }
+
+  txBuilder.addOutput(toAddr, amt);
+  const change = totalAmt - amt - txFee;
   if (change > 0) {
     txBuilder.addOutput(userCashAddr, change);
   }
@@ -114,14 +109,16 @@ async function spendUTXO(toAddr: string,
   }
 
   // Sign the transaction with the HD node.
-  let redeemScript
-  txBuilder.sign(
-    0,
-    userKeyPair,
-    redeemScript,
-    txBuilder.hashTypes.SIGHASH_ALL,
-    utxo.satoshis
-  );
+  utxos.forEach((utxo, idx) => {
+    let redeemScript
+    txBuilder.sign(
+      idx,
+      userKeyPair,
+      redeemScript,
+      txBuilder.hashTypes.SIGHASH_ALL,
+      utxo.satoshis,
+    );
+  });
 
   // build tx
   const tx = txBuilder.build();
@@ -134,8 +131,7 @@ async function spendUTXO(toAddr: string,
   const txid = await provider.sendRawTransaction(hex);
   // console.log(`Transaction ID: ${txid}`);
 
-  const libauthTx = decodeTransaction(hexToBin(hex)) as LibauthTx;
-  console.log('tx details:', stringify({ ...libauthTx, txid, hex }));
+  console.log('tx details:', rawTxToStr(txid, hex));
 }
 
 function asciiToHex(str: string) {

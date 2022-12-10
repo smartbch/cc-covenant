@@ -2,21 +2,16 @@ import path from 'path';
 import { BITBOX } from 'bitbox-sdk';
 import { compileFile } from 'cashc';
 import { stringify } from '@bitauth/libauth';
-import { 
-  ElectrumNetworkProvider, 
+import {  
   Contract, 
   SignatureTemplate, 
   HashType, 
   SignatureAlgorithm,
 } from 'cashscript';
-import {
-  ElectrumCluster,
-  ElectrumTransport,
-  ClusterOrder,
-  RequestResponse,
-} from 'electrum-cash';
+
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
+import { createElectrumTestnetProvider, rawTxToStr } from './utils/utils';
 
 const bitbox = new BITBOX();
 const rootSeed = bitbox.Mnemonic.toSeed('cc_covenant_v2_testnet');
@@ -49,10 +44,7 @@ const aliceCashAddr = bitbox.Address.hash160ToCash(alicePkh.toString('hex'), 0x6
 
 const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
 
-const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
-const provider = new ElectrumNetworkProvider('testnet', electrum);
+const provider = createElectrumTestnetProvider();
 
 yargs(hideBin(process.argv))
   .command('print-covenant-info', 'show covenant info', (yargs: any) => {

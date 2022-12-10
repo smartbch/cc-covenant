@@ -1,9 +1,4 @@
-import {
-  hexToBin,
-  decodeTransaction,
-  Transaction as LibauthTransaction,
-  stringify,
-} from '@bitauth/libauth';
+import { rawTxToStr } from '../utils/utils';
 
 run();
 
@@ -17,9 +12,7 @@ async function run(): Promise<void> {
   if (txHex.startsWith("0x")) {
     txHex = txHex.substring(2);
   }
-  // console.log('txHex:', txHex);
 
-  const libauthTransaction = decodeTransaction(hexToBin(txHex)) as LibauthTransaction;
-  const tx = { ...libauthTransaction, txHex };
-  console.log(stringify(tx));
+  // console.log('txHex:', txHex);
+  console.log(rawTxToStr('?', txHex));
 }
