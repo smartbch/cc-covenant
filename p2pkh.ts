@@ -1,11 +1,5 @@
 import { BITBOX } from 'bitbox-sdk';
 import { stringify } from '@bitauth/libauth';
-import {
-  ElectrumCluster,
-  ElectrumTransport,
-  ClusterOrder,
-  RequestResponse,
-} from 'electrum-cash';
 import { 
   Contract, 
   SignatureTemplate, 
@@ -13,6 +7,7 @@ import {
 } from 'cashscript';
 import { compileFile } from 'cashc';
 import path from 'path';
+import { createElectrumTestnetProvider, rawTxToStr } from './utils/utils';
 
 // Initialise BITBOX
 const bitbox = new BITBOX();
@@ -26,13 +21,8 @@ const alice = bitbox.HDNode.toKeyPair(bitbox.HDNode.derive(hdNode, 0));
 const alicePk = bitbox.ECPair.toPublicKey(alice);
 const alicePkh = bitbox.Crypto.hash160(alicePk);
 
-// Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
-const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-electrum.addServer('bch0.kister.net', 50002, ElectrumTransport.TCP_TLS.Scheme, false);
-
 // Initialise a network provider for network operations on TESTNET
-const provider = new ElectrumNetworkProvider('testnet', electrum);
+const provider = createElectrumTestnetProvider();
 
 // Compile the P2PKH contract to an artifact object
 const artifact = compileFile(path.join(__dirname, 'p2pkh.cash'));
@@ -65,7 +55,7 @@ async function run(): Promise<void> {
 async function printInfo() {
   // Get contract balance & output address + balance
   console.log('contract address:', contract.address);
-  console.log('contract balance:', await contract.getBalance());
+  console.log('contract balance:', (await contract.getBalance()) / 10**8);
 }
 
 async function sendTo(addr: string, amt: number, opRetData: string): Promise<void> {

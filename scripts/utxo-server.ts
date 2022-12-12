@@ -1,23 +1,11 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 
-import { BITBOX } from 'bitbox-sdk';
-import {
-  ElectrumCluster,
-  ElectrumTransport,
-  ClusterOrder,
-} from 'electrum-cash';
-// import { ElectrumNetworkProvider } from 'cashscript';
-import ElectrumNetworkProvider from './_ElectrumNetworkProvider';
-import {
-  hexToBin,
-  decodeTransaction,
-  Transaction as LibauthTx,
-  stringify,
-} from '@bitauth/libauth';
-
 import express from "express";
 import cors from "cors";
+
+import { BITBOX } from 'bitbox-sdk';
+import { createElectrumTestnetProvider2 } from '../utils/utils';
 
 
 const mnemonic = process.env.MNEMONIC || 'faucet';
@@ -39,14 +27,8 @@ const faucetPubKey = bitbox.ECPair.toPublicKey(faucetKeyPair);
 const faucetPkh = bitbox.Crypto.hash160(faucetPubKey);
 const faucetCashAddr = bitbox.Address.hash160ToCash(faucetPkh.toString('hex'), 0x6f);
 
-// Initialise a 1-of-2 Electrum Cluster with 2 hardcoded servers
-const electrum = new ElectrumCluster('CashScript Application', '1.4.1', 1, 2, ClusterOrder.PRIORITY);
-electrum.addServer('blackie.c3-soft.com', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-// electrum.addServer('tbch.loping.net', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-electrum.addServer('testnet.bitcoincash.network', 60002, ElectrumTransport.TCP_TLS.Scheme, false);
-
 // Initialise a network provider for network operations on TESTNET
-const provider = new ElectrumNetworkProvider('testnet', electrum);
+const provider = createElectrumTestnetProvider2();
 
 
 const app = express();
@@ -132,20 +114,11 @@ app.get('/spend', async (req, res) => {
   const txid = await provider.sendRawTransaction(hex);
   // console.log(`Transaction ID: ${txid}`);
 
-  const libauthTx = decodeTransaction(hexToBin(hex)) as LibauthTx;
-  console.log('tx details:', stringify({ ...libauthTx, txid, hex }));
+  // const libauthTx = decodeTransaction(hexToBin(hex)) as LibauthTx;
+  // console.log('tx details:', stringify({ ...libauthTx, txid, hex }));
   res.json({success: true, txid: txid});
 });
 
 app.listen(port, () => {
   console.log("HTTP server listening at port %s", port);
 });
-
-function asciiToHex(str: string) {
-  const arr1 = [];
-  for (let n = 0, l = str.length; n < l; n ++) {
-    let hex = Number(str.charCodeAt(n)).toString(16);
-    arr1.push(hex);
-   }
-  return arr1.join('');
-}

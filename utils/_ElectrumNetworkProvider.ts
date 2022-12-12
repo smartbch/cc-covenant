@@ -14,7 +14,7 @@ import { Utxo, Network } from 'cashscript';
 import { NetworkProvider } from 'cashscript';
 // import { addressToLockScript } from 'cashscript';
 
-export default class ElectrumNetworkProvider implements NetworkProvider {
+export default class ElectrumNetworkProvider2 implements NetworkProvider {
   private electrum: ElectrumCluster;
   private concurrentRequests: number = 0;
 

@@ -1,7 +1,11 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import { BITBOX } from 'bitbox-sdk';
-import { createElectrumTestnetProvider, rawTxToStr } from '../utils/utils';
+import { 
+  createElectrumTestnetProvider, 
+  rawTxToStr,
+  asciiToHex
+} from '../utils/utils';
 
 // Initialise BITBOX
 const bitbox = new BITBOX({});
@@ -34,10 +38,21 @@ yargs(hideBin(process.argv))
       .option('txfee',   {required: true, type: 'number', description: 'tx fee'})
       ;
   }, async (argv: any) => {
-    await spendUTXO(argv.to, argv.utxo, argv.retdata, argv.amt, argv.txfee);
+    await spendUTXO(argv.to, toArr(argv.utxo), toArr(argv.retdata), argv.amt, argv.txfee);
   })
   .strictCommands()
   .argv;
+
+function toArr(arg: string | string[]): string[] {
+  switch (typeof arg) {
+  case 'string':
+    return [arg as string];
+  case 'object': // array
+    return arg as string[];
+  default:
+    return [];
+  }
+}
 
 async function printUserInfo() {
   console.log('WIF     :', userKeyPair.toWIF());
@@ -51,8 +66,8 @@ async function printUserInfo() {
 }
 
 async function spendUTXO(toAddr: string,
-                         txIdVout: string | string[],
-                         retData: string,
+                         txIdVout: string[],
+                         retData: string[],
                          amt: number,
                          txFee: number) {
   console.log('toAddr:', toAddr);
@@ -69,17 +84,7 @@ async function spendUTXO(toAddr: string,
     return;
   }
 
-  switch (typeof txIdVout) {
-  case 'string':
-    utxos = utxos.filter(x => x.txid + ':' + x.vout == txIdVout);
-    break;
-  case 'object': // array
-    utxos = utxos.filter(x => txIdVout.indexOf(x.txid + ':' + x.vout) >= 0);
-    break;
-  default:
-    utxos = [];
-  }
-
+  utxos = utxos.filter(x => txIdVout.indexOf(x.txid + ':' + x.vout) >= 0);
   if (utxos.length == 0) {
     console.log("UTXO not found !");
     return;
@@ -99,13 +104,15 @@ async function spendUTXO(toAddr: string,
     txBuilder.addOutput(userCashAddr, change);
   }
 
-  if (retData && retData != 'no') {
-    const retDataHex = asciiToHex(retData);
-    // console.log('retDataHex:', retDataHex);
-    const retDataBuf = Buffer.from(retDataHex, 'hex');
-    const nullDataScript = bitbox.Script.nullData.output.encode(retDataBuf);
-    // console.log('nullDataScript:', nullDataScript);
-    txBuilder.addOutput(nullDataScript, 0);
+  for (const dataStr of retData) {
+    if (dataStr != 'no') {
+      const retDataHex = asciiToHex(dataStr);
+      // console.log('retDataHex:', retDataHex);
+      const retDataBuf = Buffer.from(retDataHex, 'hex');
+      const nullDataScript = bitbox.Script.nullData.output.encode(retDataBuf);
+      // console.log('nullDataScript:', nullDataScript);
+      txBuilder.addOutput(nullDataScript, 0);
+    }
   }
 
   // Sign the transaction with the HD node.
@@ -132,13 +139,4 @@ async function spendUTXO(toAddr: string,
   // console.log(`Transaction ID: ${txid}`);
 
   console.log('tx details:', rawTxToStr(txid, hex));
-}
-
-function asciiToHex(str: string) {
-  const arr1 = [];
-  for (let n = 0, l = str.length; n < l; n ++) {
-    let hex = Number(str.charCodeAt(n)).toString(16);
-    arr1.push(hex);
-   }
-  return arr1.join('');
 }
