@@ -5,7 +5,7 @@ import express from "express";
 import cors from "cors";
 
 import { BITBOX } from 'bitbox-sdk';
-import { createElectrumTestnetProvider2 } from '../utils/utils';
+import { asciiToHex, createElectrumTestnetProvider2 } from '../utils/utils';
 
 
 const mnemonic = process.env.MNEMONIC || 'faucet';
