@@ -35,7 +35,7 @@ async function main() {
   console.log('addr:', senderCashAddr);
   while (true) {
     await send();
-    await sleep(3600 * 1000);
+    await sleep(3600 * 2000);
   }
 }
 
@@ -43,16 +43,18 @@ async function send() {
   const utxos = await provider.getUtxos(senderCashAddr);
   console.log('utxos:', utxos);
 
-  const utxo = utxos.find(utxo => utxo.satoshis > amt + txFee);
+  const _amt = amt + Math.floor(Math.random() * amt);
+  console.log('amt:', _amt);
+  const utxo = utxos.find(utxo => utxo.satoshis > _amt + txFee);
   if (!utxo) {
     return;
   }
 
   const txBuilder = new bitbox.TransactionBuilder('testnet');
   txBuilder.addInput(utxo.txid, utxo.vout);
-  txBuilder.addOutput(ccCovenantAddr, amt);
+  txBuilder.addOutput(ccCovenantAddr, _amt);
 
-  const change = utxo.satoshis - amt - txFee;
+  const change = utxo.satoshis - _amt - txFee;
   if (change > 0) {
     txBuilder.addOutput(senderCashAddr, change);
   }
