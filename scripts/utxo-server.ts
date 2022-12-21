@@ -1,3 +1,5 @@
+import https from 'https';
+
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 
@@ -30,6 +32,8 @@ const faucetCashAddr = bitbox.Address.hash160ToCash(faucetPkh.toString('hex'), 0
 // Initialise a network provider for network operations on TESTNET
 const provider = createElectrumTestnetProvider2();
 
+// https://stackoverflow.com/questions/10888610/ignore-invalid-self-signed-ssl-certificate-in-node-js-with-https-request
+process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
 
 const app = express();
 app.use(cors());
@@ -38,6 +42,29 @@ app.get('/info', async (req, res) => {
   res.json({
     address: faucetCashAddr,
   });
+});
+
+app.get('/forward', async (req, res) => {
+  const _to = req.query.to as string;
+  console.log('forward to:', _to);
+
+  const request = https.request(_to, (response) => {
+    let data = '';
+    response.on('data', (chunk) => {
+      data = data + chunk.toString();
+    });
+
+    response.on('end', () => {
+      const body = JSON.parse(data);
+      res.json(body);
+    });
+  })
+
+  request.on('error', (err) => {
+    res.json({success: false, error: err+''});
+  });
+
+  request.end() 
 });
 
 app.get('/history', async (req, res) => {
