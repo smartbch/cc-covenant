@@ -35,6 +35,10 @@ const provider = createElectrumTestnetProvider2();
 // https://stackoverflow.com/questions/10888610/ignore-invalid-self-signed-ssl-certificate-in-node-js-with-https-request
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
 
+process.on('uncaughtException', (err, origin) => {
+  console.log('uncaughtException!!!', err);
+});
+
 const app = express();
 app.use(cors());
 
