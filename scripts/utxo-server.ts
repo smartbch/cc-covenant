@@ -71,6 +71,11 @@ app.get('/forward', async (req, res) => {
   request.end() 
 });
 
+app.get('/height', async (req, res) => {
+  const height = await provider.getBlockHeight();
+  res.json({ height });
+});
+
 app.get('/history', async (req, res) => {
   const covenantAddr = req.query.covenantAddr as string || ccCovenantAddr;
   const history = await provider.getHistory(covenantAddr);
