@@ -70,6 +70,22 @@ yargs(hideBin(process.argv))
   }, async (argv: any) => {
     await redeemByUser(argv.to, argv.utxo, argv.txfee, argv.dryrun);
   })
+  .command('redeem-all', 'redeem all cc-UTXOs', (yargs: any) => {
+    return yargs
+      .option('to',     {required: true, type: 'string', description: 'receiver address'})
+      .option('txfee',  {required: true, type: 'number', description: 'tx fee'})
+      ;
+  }, async (argv: any) => {
+      const contract = createContract();
+      let utxos = await contract.getUtxos();
+      console.log('addr:', contract.address);
+      console.log('UTXOs:', utxos.length);
+
+      for (const utxo of utxos) {
+        console.log('redeeming', utxo, '...');
+        await redeemByUser(argv.to, `${utxo.txid}:${utxo.vout}`, argv.txfee, false);
+      }
+  })
   .command('convert-by-operators', 'convert cc-UTXO by operators', (yargs: any) => {
     return yargs
       .option('to',     {required: true, type: 'string', description: 'cc-covenant address'})
