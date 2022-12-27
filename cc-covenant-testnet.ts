@@ -82,6 +82,10 @@ yargs(hideBin(process.argv))
       console.log('UTXOs:', utxos.length);
 
       for (const utxo of utxos) {
+        if (utxo.satoshis < argv.txfee) {
+          continue;
+        }
+
         console.log('redeeming', utxo, '...');
         await redeemByUser(argv.to, `${utxo.txid}:${utxo.vout}`, argv.txfee, false);
       }
@@ -149,9 +153,12 @@ function printContractInfo(verbose: boolean) {
 
 async function listUTXOs() {
   const contract = createContract();
-  let utxos = await contract.getUtxos();
+  const utxos = await contract.getUtxos();
+  const sum = utxos.reduce((partialSum, utxo) => partialSum + utxo.satoshis / 10**8, 0);
   console.log('addr:', contract.address);
-  console.log('UTXOs:', utxos);
+  console.log('UTXOs:', utxos.length);
+  console.log('balance:', sum);
+  console.table(utxos);
 }
 
 async function redeemByUser(toAddr: string,

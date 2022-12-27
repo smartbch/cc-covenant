@@ -62,7 +62,10 @@ async function printUserInfo() {
 
   console.log('quering UTXOs ...');
   const utxos = await provider.getUtxos(userCashAddr);
-  console.log("utxos:", utxos);
+  const sum = utxos.reduce((partialSum, utxo) => partialSum + utxo.satoshis / 10**8, 0);
+  console.log('UTXOs:', utxos.length);
+  console.log('balance:', sum);
+  console.table(utxos);
 }
 
 async function spendUTXO(toAddr: string,
