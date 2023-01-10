@@ -92,12 +92,12 @@ yargs(hideBin(process.argv))
   })
   .command('convert-by-operators', 'convert cc-UTXO by operators', (yargs: any) => {
     return yargs
+      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
+      .option('new-monitor-pubkeys-hash',  {required: true, type: 'string', description: '20-bytes hex'})
       .option('to',     {required: true, type: 'string', description: 'cc-covenant address'})
       .option('utxo',   {required: true, type: 'string', description: 'txid:vout'})
       .option('txfee',  {required: true, type: 'number', description: 'tx fee'})
       .option('dryrun', {required: false, type: 'boolean', default: false})
-      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
-      .option('new-monitor-pubkeys-hash',  {required: true, type: 'string', description: '20-bytes hex'})
       ;
   }, async (argv: any) => {
     await convertByOperators(argv.utxo, argv.txfee, argv.to, 
@@ -105,17 +105,17 @@ yargs(hideBin(process.argv))
   })
   .command('convert-by-monitors', 'convert cc-UTXO by monitors', (yargs: any) => {
     return yargs
+      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
       .option('to',       {required: true, type: 'string', description: 'new cc-covenant address'})
       .option('utxo',     {required: true, type: 'string', description: 'txid:vout'})
-    //.option('txfee',    {required: true, type: 'number', description: 'tx fee'})
-      .option('dryrun',   {required: false, type: 'boolean', default: false})
+      .option('txfee',    {required: true, type: 'number', description: 'tx fee'})
       .option('fee-utxo', {required: true, type: 'string', description: 'txid:vout'})
       .option('fee-wif',  {required: true, type: 'string', description: 'key of fee provider in WIF'})
-      .option('new-operator-pubkeys-hash', {required: true, type: 'string', description: '20-bytes hex'})
+      .option('dryrun',   {required: false, type: 'boolean', default: false})
       ;
   }, async (argv: any) => {
     await convertByMonitors(argv.utxo, argv.to, argv.newOperatorPubkeysHash, 
-        argv.feeUtxo, argv.feeWif, argv.dryrun);
+        argv.feeUtxo, argv.feeWif, argv.txfee, argv.dryrun);
   })
   .strictCommands()
   .argv;
@@ -239,6 +239,7 @@ async function convertByMonitors(txIdVout: string,
                                  newOperatorPbukeysHash: string,
                                  feeTxIdVout: string,
                                  feeWif: string,
+                                 txFee: number,
                                  dryRun: boolean): Promise<void> {
   console.log('convertByMonitors...');
 
@@ -273,7 +274,12 @@ async function convertByMonitors(txIdVout: string,
     console.log("fee UTXO not found !");
     return;
   }
-  const txFee = feeUtxo.satoshis;
+  const changeAmt = feeUtxo.satoshis - txFee;
+  if (changeAmt < 0) {
+    console.log("not enough tx fee !");
+    return;
+  }
+
   (feeUtxo as any).template = new SignatureTemplate(feeProviderPair);
 
   const monotorSigTmpls = monitorKeyPairs.slice(0, 2)
@@ -288,7 +294,11 @@ async function convertByMonitors(txIdVout: string,
     )
     .from([utxo, feeUtxo])
     .to([{to: newCovenantAddr, amount: amt}])
-    .withHardcodedFee(txFee);
+    .withHardcodedFee(txFee)
+    .withAge(34560);
+  if (changeAmt > 0) {
+    txBuilder.to(feeProviderAddr, changeAmt);
+  }
 
   if (dryRun) {
     const txHex = await txBuilder.build();

@@ -55,7 +55,13 @@ async function run(): Promise<void> {
 async function printInfo() {
   // Get contract balance & output address + balance
   console.log('contract address:', contract.address);
-  console.log('contract balance:', (await contract.getBalance()) / 10**8);
+  // console.log('contract balance:', (await contract.getBalance()) / 10**8);
+
+  const utxos = await provider.getUtxos(contract.address);
+  const sum = utxos.reduce((partialSum, utxo) => partialSum + utxo.satoshis / 10**8, 0);
+  console.log('UTXOs:', utxos.length);
+  console.log('balance:', sum);
+  console.table(utxos);
 }
 
 async function sendTo(addr: string, amt: number, opRetData: string): Promise<void> {
