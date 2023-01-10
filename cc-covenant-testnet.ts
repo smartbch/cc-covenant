@@ -33,15 +33,6 @@ const monitorWIFs = monitorKeyPairs.map(k => bitbox.ECPair.toWIF(k));
 const monitorPks = monitorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
 const monitorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(monitorPks))
 
-// alice
-const aliceRootSeed = bitbox.Mnemonic.toSeed('alice');
-const aliceHdNode = bitbox.HDNode.fromSeed(aliceRootSeed);
-const aliceNode = bitbox.HDNode.derive(aliceHdNode, 1234);
-const aliceKeyPair = bitbox.HDNode.toKeyPair(aliceNode);
-const alicePubKey = bitbox.ECPair.toPublicKey(aliceKeyPair);
-const alicePkh = bitbox.Crypto.hash160(alicePubKey);
-const aliceCashAddr = bitbox.Address.hash160ToCash(alicePkh.toString('hex'), 0x6f);
-
 const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
 
 const provider = createElectrumTestnetProvider();
