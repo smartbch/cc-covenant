@@ -22,16 +22,16 @@ const operatorKeyPairs = [...Array(10).keys()]
     .map(x => bitbox.HDNode.derive(hdNode, x + 100))
     .map(n => bitbox.HDNode.toKeyPair(n));
 const operatorWIFs = operatorKeyPairs.map(k => bitbox.ECPair.toWIF(k));
-const operatorPks = operatorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
-const operatorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(operatorPks))
+const operatorPbks = operatorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
+const operatorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(operatorPbks))
 
 // monitors
 const monitorKeyPairs = [...Array(3).keys()]
     .map(x => bitbox.HDNode.derive(hdNode, x + 200))
     .map(n => bitbox.HDNode.toKeyPair(n));
 const monitorWIFs = monitorKeyPairs.map(k => bitbox.ECPair.toWIF(k));
-const monitorPks = monitorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
-const monitorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(monitorPks))
+const monitorPbks = monitorKeyPairs.map(k => bitbox.ECPair.toPublicKey(k));
+const monitorPubkeysHash = bitbox.Crypto.hash160(Buffer.concat(monitorPbks))
 
 const artifact = compileFile(path.join(__dirname, 'cc-covenant-testnet.cash'));
 
@@ -113,15 +113,33 @@ yargs(hideBin(process.argv))
 
 function printKeys(verbose: boolean) {
   if (verbose) {
-    console.log('operatorWIFs:', operatorWIFs.map(x => x.toString('hex')));
-    console.log('operatorPks:', operatorPks.map(x => x.toString('hex')));
+    // console.log('operatorWIFs:', operatorWIFs.map(x => x.toString('hex')));
+    // console.log('operatorPbks:', operatorPbks.map(x => x.toString('hex')));
+    const ops = [];
+    for (let i = 0; i < operatorWIFs.length; i++) {
+      ops.push({
+        WIF: operatorWIFs[i].toString('hex'),
+        PBK: operatorPbks[i].toString('hex'),
+      })
+    }
+    console.log('operators:');
+    console.table(ops);
+  }
+  if (verbose) {
+    // console.log('monitorWIFs:', monitorWIFs.map(x => x.toString('hex')));
+    // console.log('monitorPbks:', monitorPbks.map(x => x.toString('hex')));
+    const mos = [];
+    for (let i = 0; i < monitorWIFs.length; i++) {
+      mos.push({
+        WIF: monitorWIFs[i].toString('hex'),
+        PBK: monitorPbks[i].toString('hex'),
+      })
+    }
+    console.log('monitors:');
+    console.table(mos);
   }
   console.log('operatorPubkeysHash:', operatorPubkeysHash.toString('hex'));
-  if (verbose) {
-    console.log('monitorWIFs:', monitorWIFs.map(x => x.toString('hex')));
-    console.log('monitorPks:', monitorPks.map(x => x.toString('hex')));
-  }
-  console.log('monitorPubkeysHash:', monitorPubkeysHash.toString('hex'));
+  console.log('monitorPubkeysHash :', monitorPubkeysHash.toString('hex'));
 }
 
 function createContract() {
@@ -206,7 +224,7 @@ async function redeemOrConvert(toAddr: string,
   const txBuilder = await contract.functions
     .redeemOrConvert(
       ...operatorSigTmpls,
-      ...operatorPks,
+      ...operatorPbks,
       newMonitorPubkeysHash,
       newOperatorPbukeysHash
     )
@@ -280,7 +298,7 @@ async function convertByMonitors(txIdVout: string,
   const txBuilder = await contract.functions
     .convertByMonitors(
       ...monotorSigTmpls,
-      ...monitorPks,
+      ...monitorPbks,
       newOperatorPbukeysHash
     )
     .from([utxo, feeUtxo])
